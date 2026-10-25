@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/png" href="/DPW.png">
+    <link rel="shortcut icon" href="DPW.png" type="image/x-icon">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DPW Meet - Department of Prehistoric Wildlife</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- PeerJS for Real P2P Video/Audio Calling -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Google Sans', 'Roboto', 'sans-serif'],
+                    },
+                    colors: {
+                        meet: {
+                            bg: '#FFFFFF',
+                            gray: '#F8F9FA',
+                            dark: '#202124',
+                            tile: '#3c4043',
+                            blue: '#1a73e8',
+                            blueHover: '#1557b0',
+                            red: '#ea4335',
+                            redHover: '#d93025',
+                            border: '#dadce0',
+                            text: '#3c4043'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #FFFFFF;
+            color: #3c4043;
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Google Meet Styled Control Buttons */
+        .btn-meet-ctrl {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(60,64,67,0.15);
+        }
+
+        .btn-meet-ctrl:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-off {
+            background-color: #ea4335 !important;
+            color: #ffffff !important;
+        }
+
+        .btn-on {
+            background-color: #3c4043;
+            color: #ffffff;
+        }
+
+        .btn-on:hover {
+            background-color: #4a4e51;
+        }
+
+        .btn-active-feature {
+            background-color: #e8f0fe !important;
+            color: #1a73e8 !important;
+            border: 1px solid #1a73e8;
+        }
+
+        /* Video Tile Layout styling like Google Meet */
+        .video-tile {
+            position: relative;
+            background-color: #202124;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        /* Floating reaction animation keyframes */
+        @keyframes meetFloatUp {
+            0% { transform: translateY(0) scale(0.6); opacity: 1; }
+            50% { transform: translateY(-160px) scale(1.2); opacity: 0.9; }
+            100% { transform: translateY(-320px) scale(1); opacity: 0; }
+        }
+
+        .animate-meet-float {
+            position: absolute;
+            animation: meetFloatUp 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            pointer-events: none;
+            z-index: 60;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f3f4;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #dadce0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between bg-white text-slate-800 select-none">
+
+    <!-- FLOATING REACTION LAYER -->
+    <div id="reaction-container" class="fixed inset-0 pointer-events-none z-50 overflow-hidden"></div>
+
+    <!-- MAIN APP SHELL -->
+    <div class="h-full flex flex-col justify-between relative">
+
+        <!-- GOOGLE MEET TOP BAR -->
+        <header class="h-16 border-b border-meet-border px-6 flex items-center justify-between bg-white z-20 shrink-0 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <!-- DPW Official Image Logo (Tries local DPW.png / DPW.jpg with fallback) -->
+                <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-300 shadow-sm shrink-0 bg-slate-100 flex items-center justify-center">
+                    <img id="dpw-logo-img" src="DPW.png" alt="DPW Logo" class="w-full h-full object-cover" 
+                         onerror="this.onerror=null; this.src='DPW.jpg'; this.onerror=function(){ this.style.display='none'; document.getElementById('dpw-logo-svg').classList.remove('hidden'); }">
+                    <svg id="dpw-logo-svg" class="w-8 h-8 text-amber-700 hidden" viewBox="0 0 100 100" fill="currentColor">
+                        <circle cx="50" cy="50" r="46" fill="#2d4a3e" stroke="#e9c46a" stroke-width="4"/>
+                        <path d="M 30 75 C 30 55, 45 40, 50 30 C 52 26, 55 20, 62 20 C 67 20, 70 23, 68 27 C 65 33, 58 35, 56 42 C 54 48, 56 60, 65 65 C 72 68, 80 65, 85 75 Z" fill="#e9c46a"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-slate-800 text-lg tracking-tight font-sans">DPW Meet</span>
+                        <span class="bg-emerald-100 text-emerald-800 text-[11px] font-medium px-2 py-0.5 rounded-full border border-emerald-300">Official Portal</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-sans">Department of Prehistoric Wildlife</p>
+                </div>
+            </div>
+
+            <!-- Header Info & Controls -->
+            <div class="flex items-center space-x-4">
+                <div id="room-code-badge" class="hidden sm:flex items-center space-x-2 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg text-xs text-slate-700 font-medium">
+                    <span class="text-slate-400">Code:</span>
+                    <span id="display-meeting-code" class="font-mono font-bold text-meet-blue">dpw-sec-9012</span>
+                    <button onclick="copyMeetingCode()" title="Copy Link" class="hover:text-meet-blue ml-1 text-slate-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                </div>
+
+                <div class="text-sm text-slate-600 font-medium flex items-center space-x-3">
+                    <span id="meet-clock">1:12 PM</span>
+                    <span class="text-slate-300">|</span>
+                    <span class="text-xs text-slate-500 font-semibold">Sun, Oct 25</span>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- ==================== SCREEN 1: GOOGLE MEET HOMEPAGE ==================== -->
+        <main id="lobby-screen" class="flex-1 overflow-y-auto flex items-center justify-center p-6 bg-white">
+            <div class="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                
+                <!-- Left: Google Meet Landing Action Area -->
+                <div class="lg:col-span-6 space-y-6">
+                    <h1 class="text-4xl sm:text-5xl font-normal text-slate-900 leading-tight">
+                        Video calls and meetings for <span class="font-semibold text-slate-800">DPW Staff</span>.
+                    </h1>
+                    <p class="text-slate-600 text-lg">
+                        Connect, collaborate, and sync operations with team members securely anywhere.
+                    </p>
+
+                    <!-- Credentials & Joining Inputs -->
+                    <div class="space-y-4 pt-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Officer Name</label>
+                                <input type="text" id="user-display-name" value="Dr. Alan Grant" placeholder="Enter full name" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-meet-blue transition">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Designation</label>
+                                <select id="user-role-select" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-meet-blue transition">
+                                    <option value="MD / Managing Director" selected>Managing Director (MD)</option>
+                                    <option value="Chief Executive Officer">Chief Executive Officer (CEO)</option>
+                                    <option value="General Manager">General Manager (GM)</option>
+                                    <option value="Head Field Ranger">Head Field Ranger</option>
+                                    <option value="Paleoveterinarian">Paleoveterinarian</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Buttons & Room Code Entry Bar (Exact Google Meet Style) -->
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 pt-2">
+                            <button onclick="enterMeetingRoom(true)" class="px-6 py-3 bg-meet-blue hover:bg-meet-blueHover text-white font-medium rounded-lg shadow-md transition flex items-center justify-center space-x-2 shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                <span>New meeting</span>
+                            </button>
+
+                            <div class="flex items-center space-x-2 w-full sm:w-auto flex-1">
+                                <div class="relative w-full">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                                    </div>
+                                    <input type="text" id="input-room-code" placeholder="Enter a code or link" class="w-full pl-10 pr-4 py-3 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-meet-blue transition">
+                                </div>
+                                <button onclick="enterMeetingRoom(false)" class="px-5 py-3 text-meet-blue font-medium hover:bg-blue-50 rounded-lg transition disabled:text-slate-400">
+                                    Join
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-200 pt-4 flex items-center space-x-2 text-xs text-slate-500">
+                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        <span>Encrypted DPW Internal Operations Portal</span>
+                    </div>
+                </div>
+
+                <!-- Right: Google Meet Graphic Illustration -->
+                <div class="lg:col-span-6 flex flex-col items-center justify-center text-center space-y-6">
+                    <div class="w-72 h-72 sm:w-80 sm:h-80 rounded-full bg-blue-50/70 border-4 border-slate-100 flex flex-col items-center justify-center p-8 relative shadow-inner">
+                        <div class="w-24 h-24 rounded-full bg-meet-blue/10 flex items-center justify-center mb-4">
+                            <!-- DPW Dinosaur Vector Icon Illustration -->
+                            <img src="DPW.png" alt="DPW Logo" class="w-16 h-16 object-contain">
+                                <path d="M 30 75 C 30 55, 45 40, 50 30 C 52 26, 55 20, 62 20 C 67 20, 70 23, 68 27 C 65 33, 58 35, 56 42 C 54 48, 56 60, 65 65 C 72 68, 80 65, 85 75 Z"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-slate-800 font-bold text-lg">Get a link you can share</h3>
+                        <p class="text-xs text-slate-500 max-w-xs mt-1">Click <b>New meeting</b> to generate a room code you can send to other staff members to join.</p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+
+        <!-- ==================== SCREEN 2: LIVE MEETING ROOM ==================== -->
+        <main id="meeting-screen" class="hidden flex-1 overflow-hidden flex relative bg-meet-gray">
+            
+            <!-- VIDEO CONTAINER GRID -->
+            <div class="flex-1 p-4 flex flex-col justify-between overflow-hidden relative">
+                
+                <div id="video-grid" class="w-full h-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 items-center justify-center">
+                    
+                    <!-- USER SELF TILE (ONLY DISPLAYED PERSON INITIALLY) -->
+                    <div id="self-tile" class="video-tile h-full min-h-[260px] flex items-center justify-center">
+                        <video id="user-video-feed" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100 hidden"></video>
+                        
+                        <div id="user-avatar-fallback" class="flex flex-col items-center justify-center space-y-3">
+                            <div id="self-avatar-initials" class="w-24 h-24 rounded-full bg-meet-blue flex items-center justify-center text-3xl text-white font-bold shadow-lg">
+                                AG
+                            </div>
+                            <span id="user-fallback-name" class="text-sm font-medium text-slate-200">Dr. Alan Grant (You)</span>
+                        </div>
+
+                        <!-- Hand Badge -->
+                        <div id="self-hand-badge" class="hidden absolute top-3 left-3 bg-amber-500 text-slate-950 px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-md animate-bounce">
+                            <span>✋ Hand Raised</span>
+                        </div>
+
+                        <!-- Name Tag Label -->
+                        <div class="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded-lg text-white text-xs font-medium flex items-center space-x-2">
+                            <span id="self-tile-name">You</span>
+                            <span id="self-tile-role" class="bg-emerald-600 text-white px-1.5 py-0.2 rounded text-[10px]">MD</span>
+                        </div>
+                    </div>
+
+                    <!-- SCREENSHARE DISPLAY TILE (DYNAMIC) -->
+                    <div id="screenshare-tile" class="hidden video-tile col-span-1 sm:col-span-2 lg:col-span-2 h-full min-h-[240px] border-2 border-meet-blue">
+                        <video id="screenshare-video" autoplay playsinline class="w-full h-full object-contain"></video>
+                        <div class="absolute top-3 left-3 bg-meet-blue text-white px-3 py-1 rounded-md text-xs font-medium flex items-center space-x-2 shadow-md">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            <span>You are presenting your screen</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- RIGHT DRAWER: CHAT & PARTICIPANTS -->
+            <aside id="side-drawer" class="w-80 bg-white border-l border-meet-border flex flex-col justify-between hidden lg:flex shrink-0 transition-all duration-300 shadow-md">
+                
+                <!-- Drawer Header -->
+                <div class="h-14 border-b border-meet-border flex items-center justify-between px-4 bg-white">
+                    <div class="flex space-x-2">
+                        <button id="drawer-tab-chat" onclick="switchDrawerTab('chat')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-meet-blue bg-blue-50 transition">
+                            In-call messages
+                        </button>
+                        <button id="drawer-tab-part" onclick="switchDrawerTab('participants')" class="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+                            People (<span id="participant-count">1</span>)
+                        </button>
+                    </div>
+                    <button onclick="toggleSideDrawer()" class="text-slate-500 hover:text-slate-800 p-1 rounded-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- CHAT BODY -->
+                <div id="chat-panel" class="flex-1 flex flex-col justify-between p-4 overflow-hidden">
+                    <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 text-xs pr-1">
+                        <div class="text-center text-slate-400 py-4 text-xs">
+                            Messages can only be seen by people in the call and are deleted when the call ends.
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-meet-border">
+                        <form onsubmit="handleSendChatMessage(event)" class="flex items-center space-x-2">
+                            <input type="text" id="chat-input" placeholder="Send a message to everyone" class="w-full bg-slate-100 border border-slate-300 rounded-full px-4 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-meet-blue transition">
+                            <button type="submit" class="w-8 h-8 rounded-full bg-meet-blue text-white flex items-center justify-center hover:bg-meet-blueHover transition shrink-0">
+                                <svg class="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- PARTICIPANTS BODY -->
+                <div id="participants-panel" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+                    <div id="participants-list" class="space-y-2">
+                        <!-- Dynamic participant items inserted here -->
+                    </div>
+                </div>
+            </aside>
+
+        </main>
+
+
+        <!-- ==================== SCREEN 2 CONTROLS BAR (EXACT GOOGLE MEET BAR) ==================== -->
+        <footer id="meeting-controls" class="hidden h-20 bg-white border-t border-meet-border px-6 flex items-center justify-between z-20 shrink-0 shadow-lg">
+            
+            <!-- Left: Meeting Details -->
+            <div class="hidden md:flex items-center space-x-3">
+                <span id="call-timer" class="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">00:00</span>
+                <div class="h-4 w-px bg-slate-300"></div>
+                <span id="room-code-footer" class="text-xs text-slate-600 font-medium">dpw-sec-9012</span>
+            </div>
+
+            <!-- Center Buttons Toolbar -->
+            <div class="flex items-center space-x-3 mx-auto md:mx-0">
+                
+                <!-- Mic -->
+                <button id="room-mic-btn" onclick="toggleRoomAudio()" class="btn-meet-ctrl btn-on" title="Turn off microphone">
+                    <svg id="room-mic-svg" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                </button>
+
+                <!-- Camera -->
+                <button id="room-cam-btn" onclick="toggleRoomVideo()" class="btn-meet-ctrl btn-on" title="Turn off camera">
+                    <svg id="room-cam-svg" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
+
+                <!-- Hand Raise -->
+                <button id="raise-hand-btn" onclick="toggleRaiseHand()" class="btn-meet-ctrl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300" title="Raise hand">
+                    <span class="text-lg">✋</span>
+                </button>
+
+                <!-- Screen Share -->
+                <button id="screenshare-btn" onclick="toggleScreenShare()" class="btn-meet-ctrl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300" title="Present now">
+                    <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                </button>
+
+                <!-- Emoji Reactions Dropdown -->
+                <div class="relative">
+                    <button onclick="toggleReactionMenu()" class="btn-meet-ctrl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300" title="Send a reaction">
+                        <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </button>
+
+                    <div id="reactions-menu" class="hidden absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-white border border-meet-border rounded-full px-3 py-2 shadow-xl flex items-center space-x-2 z-50">
+                        <button onclick="triggerReaction('💖')" class="p-2 hover:bg-slate-100 rounded-full text-xl transition">💖</button>
+                        <button onclick="triggerReaction('👍')" class="p-2 hover:bg-slate-100 rounded-full text-xl transition">👍</button>
+                        <button onclick="triggerReaction('🦕')" class="p-2 hover:bg-slate-100 rounded-full text-xl transition">🦕</button>
+                        <button onclick="triggerReaction('🦖')" class="p-2 hover:bg-slate-100 rounded-full text-xl transition">🦖</button>
+                        <button onclick="triggerReaction('👏')" class="p-2 hover:bg-slate-100 rounded-full text-xl transition">👏</button>
+                    </div>
+                </div>
+
+                <!-- Leave Call -->
+                <button onclick="leaveMeetingRoom()" class="px-6 h-12 rounded-full bg-meet-red hover:bg-meet-redHover text-white font-medium flex items-center space-x-2 shadow-md transition" title="Leave call">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.684A1 1 0 008.279 3H5z"></path></svg>
+                </button>
+            </div>
+
+            <!-- Right: Drawer Toggles -->
+            <div class="hidden sm:flex items-center space-x-2">
+                <button onclick="toggleSideDrawer('chat')" class="p-3 rounded-full hover:bg-slate-100 text-slate-600 transition relative">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                </button>
+                <button onclick="toggleSideDrawer('participants')" class="p-3 rounded-full hover:bg-slate-100 text-slate-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                </button>
+            </div>
+
+        </footer>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let localStream = null;
+        let screenStream = null;
+        let peer = null;
+        let activeCalls = {};
+        
+        let isAudioMuted = false;
+        let isVideoOff = false;
+        let isHandRaised = false;
+        let callStartTime = null;
+        let timerInterval = null;
+
+        window.onload = () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+            initMediaDevice();
+        };
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            document.getElementById('meet-clock').innerText = timeStr;
+        }
+
+        async function initMediaDevice() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            } catch (err) {
+                console.warn('Camera/Mic permission warning:', err);
+            }
+        }
+
+        function enterMeetingRoom(isNewMeeting) {
+            let roomCode = document.getElementById('input-room-code').value.trim();
+
+            if (isNewMeeting || !roomCode) {
+                const num = Math.floor(1000 + Math.random() * 9000);
+                roomCode = `dpw-sec-${num}`;
+            }
+
+            const userName = document.getElementById('user-display-name').value || 'Dr. Alan Grant';
+            const userRole = document.getElementById('user-role-select').value || 'MD';
+
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('meeting-screen').classList.remove('hidden');
+            document.getElementById('meeting-controls').classList.remove('hidden');
+            document.getElementById('room-code-badge').classList.remove('hidden');
+
+            document.getElementById('display-meeting-code').innerText = roomCode;
+            document.getElementById('room-code-footer').innerText = roomCode;
+
+            document.getElementById('self-tile-name').innerText = userName + " (You)";
+            document.getElementById('self-tile-role').innerText = userRole.split('/')[0].trim();
+
+            const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            document.getElementById('self-avatar-initials').innerText = initials;
+            document.getElementById('user-fallback-name').innerText = userName + " (You)";
+
+            const roomVideo = document.getElementById('user-video-feed');
+            if (localStream) {
+                roomVideo.srcObject = localStream;
+                roomVideo.classList.remove('hidden');
+                document.getElementById('user-avatar-fallback').classList.add('hidden');
+            }
+
+            updateParticipantList(userName, userRole);
+            initPeerJS(roomCode);
+
+            callStartTime = Date.now();
+            timerInterval = setInterval(updateCallTimer, 1000);
+        }
+
+        function updateParticipantList(selfName, selfRole) {
+            const list = document.getElementById('participants-list');
+            list.innerHTML = `
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/70 border border-blue-100">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-full bg-meet-blue text-white flex items-center justify-center font-bold text-xs shrink-0">
+                            You
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-800">${selfName} (You)</p>
+                            <p class="text-[10px] text-emerald-700 font-medium">${selfRole}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('participant-count').innerText = 1 + Object.keys(activeCalls).length;
+        }
+
+        function initPeerJS(roomCode) {
+            try {
+                const cleanCode = roomCode.replace(/[^a-zA-Z0-9]/g, '');
+                peer = new Peer(cleanCode + '-' + Math.floor(Math.random()*1000));
+
+                peer.on('call', (call) => {
+                    call.answer(localStream);
+                    handlePeerStream(call);
+                });
+            } catch (e) {
+                console.log('Peer JS error:', e);
+            }
+        }
+
+        function handlePeerStream(call) {
+            call.on('stream', (remoteStream) => {
+                const peerId = call.peer;
+                if (document.getElementById(`peer-tile-${peerId}`)) return;
+
+                const grid = document.getElementById('video-grid');
+                const peerTile = document.createElement('div');
+                peerTile.id = `peer-tile-${peerId}`;
+                peerTile.className = 'video-tile h-full min-h-[260px] flex items-center justify-center';
+                
+                peerTile.innerHTML = `
+                    <video id="peer-video-${peerId}" autoplay playsinline class="w-full h-full object-cover"></video>
+                    <div class="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded-lg text-white text-xs font-medium flex items-center space-x-2">
+                        <span>DPW Staff</span>
+                    </div>
+                `;
+
+                grid.appendChild(peerTile);
+                document.getElementById(`peer-video-${peerId}`).srcObject = remoteStream;
+                activeCalls[peerId] = call;
+
+                document.getElementById('participant-count').innerText = 1 + Object.keys(activeCalls).length;
+            });
+
+            call.on('close', () => {
+                const tile = document.getElementById(`peer-tile-${call.peer}`);
+                if (tile) tile.remove();
+                delete activeCalls[call.peer];
+                document.getElementById('participant-count').innerText = 1 + Object.keys(activeCalls).length;
+            });
+        }
+
+        function updateCallTimer() {
+            const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            document.getElementById('call-timer').innerText = `${mins}:${secs}`;
+        }
+
+        function toggleRoomAudio() {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                isAudioMuted = !isAudioMuted;
+                audioTrack.enabled = !isAudioMuted;
+                const btn = document.getElementById('room-mic-btn');
+                btn.className = isAudioMuted ? 'btn-meet-ctrl btn-off' : 'btn-meet-ctrl btn-on';
+            }
+        }
+
+        function toggleRoomVideo() {
+            if (!localStream) return;
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                isVideoOff = !isVideoOff;
+                videoTrack.enabled = !isVideoOff;
+                const btn = document.getElementById('room-cam-btn');
+                const roomVideo = document.getElementById('user-video-feed');
+                const fallback = document.getElementById('user-avatar-fallback');
+
+                if (isVideoOff) {
+                    btn.className = 'btn-meet-ctrl btn-off';
+                    roomVideo.classList.add('hidden');
+                    fallback.classList.remove('hidden');
+                } else {
+                    btn.className = 'btn-meet-ctrl btn-on';
+                    roomVideo.classList.remove('hidden');
+                    fallback.classList.add('hidden');
+                }
+            }
+        }
+
+        async function toggleScreenShare() {
+            const shareTile = document.getElementById('screenshare-tile');
+            const shareVideo = document.getElementById('screenshare-video');
+            const btn = document.getElementById('screenshare-btn');
+
+            if (!screenStream) {
+                try {
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    shareVideo.srcObject = screenStream;
+                    shareTile.classList.remove('hidden');
+                    btn.classList.add('btn-active-feature');
+                    screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
+                } catch (err) {
+                    console.log('Screen share cancelled');
+                }
+            } else {
+                stopScreenShare();
+            }
+        }
+
+        function stopScreenShare() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+            document.getElementById('screenshare-tile').classList.add('hidden');
+            document.getElementById('screenshare-btn').classList.remove('btn-active-feature');
+        }
+
+        function toggleRaiseHand() {
+            isHandRaised = !isHandRaised;
+            document.getElementById('self-hand-badge').classList.toggle('hidden', !isHandRaised);
+            document.getElementById('raise-hand-btn').classList.toggle('btn-active-feature', isHandRaised);
+        }
+
+        function toggleReactionMenu() {
+            document.getElementById('reactions-menu').classList.toggle('hidden');
+        }
+
+        function triggerReaction(emoji) {
+            document.getElementById('reactions-menu').classList.add('hidden');
+            const container = document.getElementById('reaction-container');
+
+            for (let i = 0; i < 4; i++) {
+                setTimeout(() => {
+                    const el = document.createElement('div');
+                    el.innerText = emoji;
+                    el.className = 'text-4xl animate-meet-float pointer-events-none drop-shadow-md';
+                    el.style.left = Math.random() * 70 + 15 + 'vw';
+                    el.style.bottom = '90px';
+                    container.appendChild(el);
+                    setTimeout(() => el.remove(), 2800);
+                }, i * 180);
+            }
+        }
+
+        function copyMeetingCode() {
+            const code = document.getElementById('display-meeting-code').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const badge = document.getElementById('room-code-badge');
+                badge.classList.add('bg-emerald-100');
+                setTimeout(() => badge.classList.remove('bg-emerald-100'), 1500);
+            });
+        }
+
+        function toggleSideDrawer(targetTab) {
+            const drawer = document.getElementById('side-drawer');
+            drawer.classList.toggle('hidden');
+            if (targetTab) switchDrawerTab(targetTab);
+        }
+
+        function switchDrawerTab(tab) {
+            const chatBtn = document.getElementById('drawer-tab-chat');
+            const partBtn = document.getElementById('drawer-tab-part');
+            const chatPanel = document.getElementById('chat-panel');
+            const partPanel = document.getElementById('participants-panel');
+
+            if (tab === 'chat') {
+                chatBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-meet-blue bg-blue-50 transition';
+                partBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition';
+                chatPanel.classList.remove('hidden');
+                partPanel.classList.add('hidden');
+            } else {
+                partBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-meet-blue bg-blue-50 transition';
+                chatBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition';
+                partPanel.classList.remove('hidden');
+                chatPanel.classList.add('hidden');
+            }
+        }
+
+        function handleSendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const userName = document.getElementById('user-display-name').value || 'You';
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+            const msgContainer = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'space-y-1';
+            msgDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-slate-800">${userName} (You)</span>
+                    <span class="text-[10px] text-slate-400">${timeStr}</span>
+                </div>
+                <p class="text-slate-800 bg-blue-50/80 p-2.5 rounded-xl border border-blue-100">${msg}</p>
+            `;
+
+            msgContainer.appendChild(msgDiv);
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+            input.value = '';
+        }
+
+        function leaveMeetingRoom() {
+            if (timerInterval) clearInterval(timerInterval);
+            if (screenStream) stopScreenShare();
+            if (peer) peer.destroy();
+
+            document.getElementById('meeting-screen').classList.add('hidden');
+            document.getElementById('meeting-controls').classList.add('hidden');
+            document.getElementById('room-code-badge').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
