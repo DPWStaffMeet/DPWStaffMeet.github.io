@@ -407,8 +407,7 @@
     </div>
 
     <!-- JAVASCRIPT LOGIC -->
-    <script>
-        let localStream = null;
+    let localStream = null;
         let screenStream = null;
         let peer = null;
         let activeCalls = {};
@@ -445,6 +444,9 @@
             if (isNewMeeting || !roomCode) {
                 const num = Math.floor(1000 + Math.random() * 9000);
                 roomCode = `dpw-sec-${num}`;
+            } else if (!isNewMeeting && !roomCode) {
+                alert('Please enter a valid meeting code.');
+                return;
             }
 
             const userName = document.getElementById('user-display-name').value || 'Dr. Alan Grant';
@@ -473,7 +475,9 @@
             }
 
             updateParticipantList(userName, userRole);
-            initPeerJS(roomCode);
+
+            // Initialize PeerJS with correct Host/Guest signaling
+            initPeerJS(roomCode, isNewMeeting);
 
             callStartTime = Date.now();
             timerInterval = setInterval(updateCallTimer, 1000);
@@ -497,10 +501,27 @@
             document.getElementById('participant-count').innerText = 1 + Object.keys(activeCalls).length;
         }
 
-        function initPeerJS(roomCode) {
+        function initPeerJS(roomCode, isHost) {
             try {
                 const cleanCode = roomCode.replace(/[^a-zA-Z0-9]/g, '');
-                peer = new Peer(cleanCode + '-' + Math.floor(Math.random()*1000));
+                const peerId = cleanCode + "-" + (isHost ? "host" : Math.random().toString(36).substring(2, 7));
+
+                peer = new Peer(peerId, {
+                    host: '0.peerjs.com',
+                    port: 443,
+                    secure: true
+                });
+
+                peer.on('open', (id) => {
+                    console.log('Connected to signaling server with ID:', id);
+                    if (!isHost) {
+                        const hostId = cleanCode + "-host";
+                        if (localStream) {
+                            const call = peer.call(hostId, localStream);
+                            handlePeerStream(call);
+                        }
+                    }
+                });
 
                 peer.on('call', (call) => {
                     call.answer(localStream);
@@ -524,7 +545,7 @@
                 peerTile.innerHTML = `
                     <video id="peer-video-${peerId}" autoplay playsinline class="w-full h-full object-cover"></video>
                     <div class="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur px-3 py-1 rounded-lg text-white text-xs font-medium flex items-center space-x-2">
-                        <span>DPW Staff</span>
+                        <span>DPW Staff Member</span>
                     </div>
                 `;
 
@@ -708,77 +729,6 @@
             document.getElementById('meeting-controls').classList.add('hidden');
             document.getElementById('room-code-badge').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
-        }
-    </script>
-    <script>
-        let peer;
-        let localStream;
-        let activeCalls = {};
-
-        // When you click "New meeting" or "Join"
-        function initializeMeeting(roomCode, isHost) {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-                localStream = stream;
-                document.getElementById('myVideo').srcObject = stream;
-
-                const peerId = roomCode + "-" + (isHost ? "host" : Math.random().toString(36).substring(2, 7));
-                
-                peer = new Peer(peerId, {
-                    host: '0.peerjs.com',
-                    port: 443,
-                    secure: true
-                });
-
-                peer.on('open', (id) => {
-                    console.log('Connected to signaling server with ID:', id);
-                    if (!isHost) {
-                        const hostId = roomCode + "-host";
-                        const call = peer.call(hostId, localStream);
-                        setupCallEvent(call);
-                    }
-                });
-
-                peer.on('call', (call) => {
-                    call.answer(localStream);
-                    setupCallEvent(call);
-                });
-
-            }).catch(err => {
-                console.error("Camera/Mic error:", err);
-                alert("Please allow camera and microphone access to join the DPW meeting.");
-            });
-        }
-
-        function setupCallEvent(call) {
-            call.on('stream', (remoteStream) => {
-                addOrUpdateRemoteVideo(call.peer, remoteStream);
-            });
-            activeCalls[call.peer] = call;
-        }
-
-        function addOrUpdateRemoteVideo(peerId, stream) {
-            let videoContainer = document.getElementById('remote-videos-grid');
-            if (!videoContainer) return;
-
-            let existingVideo = document.getElementById('video-' + peerId);
-            if (existingVideo) {
-                existingVideo.srcObject = stream;
-                return;
-            }
-
-            let wrapper = document.createElement('div');
-            wrapper.id = 'wrapper-' + peerId;
-            wrapper.className = 'relative bg-slate-900 rounded-lg overflow-hidden aspect-video flex items-center justify-center';
-            
-            let video = document.createElement('video');
-            video.id = 'video-' + peerId;
-            video.autoplay = true;
-            video.playsInline = true;
-            video.className = 'w-full h-full object-cover';
-            video.srcObject = stream;
-
-            wrapper.appendChild(video);
-            videoContainer.appendChild(wrapper);
         }
     </script>
 </body>
